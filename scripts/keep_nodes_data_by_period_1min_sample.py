@@ -24,20 +24,21 @@ def main():
 
     ### filter the jobs
 
-    whole_data_jobs = pd.read_csv(jobs_file)
-    print("there are {} jobs in the whole dataset".format(whole_data_jobs.shape[0]))
+    # whole_data_jobs = pd.read_csv(jobs_file)
+    # print("there are {} jobs in the whole dataset".format(whole_data_jobs.shape[0]))
     
-    completed_data_jobs = whole_data_jobs[whole_data_jobs.exit_status == 'COMPLETED']
-    print("there are {} completed jobs in the whole dataset".format(completed_data_jobs.shape[0]))
+    # # completed_data_jobs = whole_data_jobs[whole_data_jobs.exit_status == 'COMPLETED']
+    # completed_data_jobs = whole_data_jobs[whole_data_jobs.end_time != '0000-00-00 00:00:00']
+    # print("there are {} completed jobs in the whole dataset".format(completed_data_jobs.shape[0]))
     
-    dropped_data_jobs = completed_data_jobs[pd.to_datetime(completed_data_jobs['start_time']) > start_time]
-    dropped_data_jobs = dropped_data_jobs[pd.to_datetime(dropped_data_jobs['end_time']) < end_time]
-    print("there are {} completed jobs in the selected interval".format(dropped_data_jobs.shape[0]))
+    # dropped_data_jobs = completed_data_jobs[pd.to_datetime(completed_data_jobs['start_time']) > start_time]
+    # dropped_data_jobs = dropped_data_jobs[pd.to_datetime(dropped_data_jobs['end_time']) < end_time]
+    # print("there are {} completed jobs in the selected interval".format(dropped_data_jobs.shape[0]))
 
-    outfile = datadir + 'CPUs/' + interval_comment + "/jobs_" + interval_comment + ".csv"
-    dropped_data_jobs.to_csv(outfile)
+    # outfile = datadir + 'CPUs/' + interval_comment + "/jobs_" + interval_comment + ".csv"
+    # dropped_data_jobs.to_csv(outfile)
 
-    sys.exit(0)
+    # sys.exit(0)
 
     ### filter the measurement 
     # save CPU data (one file per node)
@@ -55,26 +56,32 @@ def main():
         infile = datadir + "CPUs/cpu" + cpu + ".csv"
 
         # read dataset
-        my_data = pd.read_csv(infile) # Read a comma-separated values (csv) file into DataFrame
-        print("data rows {}".format(my_data.shape))
+        whole_node_power_data = pd.read_csv(infile) # Read a comma-separated values (csv) file into DataFrame
+        print("data rows {}".format(whole_node_power_data.shape))
 
-        # drop the duplicates rows (same timestamp and cpu_id)
-        my_data = my_data.drop_duplicates() 
-        print("data rows after drop_duplicates {}".format(my_data.shape[0]))
+        # drop useless columns
+        # whole_node_power_data = whole_node_power_data.drop(['01'], axis=1)
+
+        # drop the duplicates rows (same timestamp, cpu_id, ...)
+        whole_node_power_data = whole_node_power_data.drop_duplicates() 
+        print("data rows after drop_duplicates {}".format(whole_node_power_data.shape[0]))
 
         # select data in the specified interval
-        interval_data = my_data[pd.to_datetime(my_data['timestamp']) > start_time]
+        interval_data = whole_node_power_data[pd.to_datetime(whole_node_power_data['timestamp']) > start_time]
         interval_data = interval_data[pd.to_datetime(interval_data['timestamp']) < end_time]
         print("data row from {} to {}: {}".format(start_time, end_time, interval_data.shape[0]))
 
         # split the data referring to the cpu0 and cpu0
         cpu0 = interval_data[interval_data['cpu_id'] == 0]
         cpu1 = interval_data[interval_data['cpu_id'] == 1]
+        print("data row after split: {}".format(cpu0.shape[0]))
+        print("data row after split: {}".format(cpu1.shape[0]))
 
         # drop the duplicates rows 
         cpu0 = cpu0.drop_duplicates(subset=['timestamp'])
         cpu1 = cpu1.drop_duplicates(subset=['timestamp'])
         print("data row after split: {}".format(cpu0.shape[0]))
+        print("data row after split: {}".format(cpu1.shape[0]))
 
         # convert the timestamp column to the Pandas timestamp format
         cpu0.timestamp = pd.to_datetime(cpu0.timestamp)
@@ -89,11 +96,20 @@ def main():
         cpu1_1min = cpu1.resample('1Min').mean()
         print("data rows {}".format(cpu1_1min.shape[0]))
 
+        # remove useless columns
+        cpu0_1min = cpu0_1min.drop(['cpu_id'], axis=1)
+        cpu1_1min = cpu1_1min.drop(['cpu_id'], axis=1)
+
+        # rename columns for the concat
+        cpu0_1min = cpu0_1min.rename(index=str, columns={"pow_cpu": "pow_cpu_0", "pow_dram": "pow_dram_0", "pow_pkg": "pow_pkg_0"})
+        cpu1_1min = cpu1_1min.rename(index=str, columns={"pow_cpu": "pow_cpu_1", "pow_dram": "pow_dram_1", "pow_pkg": "pow_pkg_1"})
+
+        # concat
+        node_1min = pd.concat([cpu0_1min, cpu1_1min], axis=1)
+
         # write
-        outfile1 = datadir + 'CPUs/' + interval_comment + "/cpu" + cpu + "_0_1min_" + interval_comment + ".csv"
-        outfile2 = datadir + 'CPUs/' + interval_comment + "/cpu" + cpu + "_1_1min_" + interval_comment + ".csv"
-        cpu0_1min.to_csv(outfile1)
-        cpu1_1min.to_csv(outfile2)
+        outfile = datadir + 'CPUs/' + interval_comment + "/node" + cpu + "_1min_" + interval_comment + ".csv"
+        node_1min.to_csv(outfile)
         
         print("-------------------")
 
