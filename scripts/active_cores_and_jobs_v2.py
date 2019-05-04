@@ -3,6 +3,7 @@
 import pandas as pd
 import errno    
 import os
+import numpy as np
 
 '''
 Author: Enrico Ceccolini
@@ -25,16 +26,20 @@ def main():
     infile_jobs = datadir + "jobs.csv" # contains all the jobs
 
     # settings
-    interval_comment = "April_new"
     suffix = "_1min_"
 
-    start_time = pd.to_datetime('2014-04-01')
-    end_time = pd.to_datetime('2014-05-01')
+    # interval_comment = "April_v2"
+    # start_time = pd.to_datetime('2014-04-01')
+    # end_time = pd.to_datetime('2014-05-01')
+
+    interval_comment = "Whole"
+    start_time = pd.to_datetime('2014-03-31')
+    end_time = pd.to_datetime('2015-08-11')
 
     # save CPU data (one file per node)
     # notice that 43 doesn't exists in the db
     cpus = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64']
-    # cpus=['01'] # test
+    # cpus=['05'] # test
 
     ### read the data
     jobs_to_nodes_whole_data = pd.read_csv(infile_jobs_to_nodes)
@@ -65,22 +70,61 @@ def main():
     for cpu in cpus:
         print(cpu)
         # take the jos runned on this node
-        interval_jobs_node_data = interval_data_jobs[interval_data_jobs['node_id'] == int(cpu)]
-        print("interval_jobs_node_data contains {} records".format(interval_jobs_node_data.shape[0]))
+        interval_jobs_to_node = interval_data_jobs[interval_data_jobs['node_id'] == int(cpu)]
+        print("interval_jobs_node_data contains {} records".format(interval_jobs_to_node.shape[0]))
 
         # read the power mesuraments file obtained with "keep_nodes_data_by_period_1min_sample.py"
         infile_node = datadir + "CPUs/" + interval_comment + "/node" + cpu + suffix + interval_comment
         node_data = pd.read_csv(infile_node + ".csv")
 
-        # add two new colums to store new data
-        node_data['active_cores'] = pd.Series()
-        node_data['active_jobs'] = pd.Series()
+        
+        num_minutes = node_data.shape[0]
+        active_cores = pd.Series(0, index=np.arange(num_minutes))
+        active_jobs = pd.Series(0, index=np.arange(num_minutes))
+        active_gpus = pd.Series(0, index=np.arange(num_minutes))
+        active_mics = pd.Series(0, index=np.arange(num_minutes))
+        active_cores.shape
 
-        for index, row in node_data.iterrows():
-            timestamp = row['timestamp']
-            running_jobs = interval_jobs_node_data.loc[(interval_jobs_node_data['run_start_time'] <= timestamp) & (interval_jobs_node_data['end_time'] >= timestamp)]
-            node_data.loc[index,'active_jobs'] = running_jobs.shape[0]
-            node_data.loc[index,'active_cores'] = running_jobs['ncpus'].sum()
+        # i = 0
+        num_jobs = interval_jobs_to_node.shape[0]
+        node_start_time = node_data['timestamp'].iloc[0]
+
+        for index, row in interval_jobs_to_node.iterrows():
+            # print("{}/{}   {}".format(i, num_jobs, row['job_id_string']))
+            # i = i + 1
+            start_time = pd.to_datetime(row['run_start_time'])
+            # print(start_time)
+            end_time = pd.to_datetime(row['end_time'])
+            job_cores = row['ncpus']
+            job_gpus = row['ngpus']
+            job_mics = row['nmics']
+            
+            before_minutes = int((start_time - pd.to_datetime(node_start_time)) / np.timedelta64(1, 'm'))
+            running_minutes = int((end_time - start_time) / np.timedelta64(1, 'm'))
+            after_minutes = num_minutes - running_minutes - before_minutes
+            # print("{} - {} - {}".format(before_minutes, running_minutes, after_minutes))
+            before_serie = pd.Series(0, index=np.arange(before_minutes))
+            after_serie = pd.Series(0, index=np.arange(after_minutes))
+            running_serie = pd.Series(job_cores, index=np.arange(running_minutes))
+            concat_series = pd.concat([before_serie, running_serie, after_serie], ignore_index=True)
+            active_cores = active_cores.add(concat_series, fill_value=0)
+            
+            running_serie = pd.Series(1, index=np.arange(running_minutes))
+            concat_series = pd.concat([before_serie, running_serie, after_serie], ignore_index=True)
+            active_jobs= active_jobs.add(concat_series, fill_value=0)
+            
+            running_serie = pd.Series(job_gpus, index=np.arange(running_minutes))
+            concat_series = pd.concat([before_serie, running_serie, after_serie], ignore_index=True)
+            active_gpus = active_gpus.add(concat_series, fill_value=0)
+            
+            running_serie = pd.Series(job_mics, index=np.arange(running_minutes))
+            concat_series = pd.concat([before_serie, running_serie, after_serie], ignore_index=True)
+            active_mics = active_mics.add(concat_series, fill_value=0)
+
+        node_data['active_cores'] = active_cores
+        node_data['active_jobs'] = active_jobs
+        node_data['active_gpus'] = active_gpus
+        node_data['active_mics'] = active_mics
 
         outfile_node = infile_node + "_active_cores_and_jobs"
         node_data.to_csv(outfile_node + ".csv")
