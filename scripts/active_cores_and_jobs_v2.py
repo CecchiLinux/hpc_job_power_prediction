@@ -4,6 +4,7 @@ import pandas as pd
 import errno    
 import os
 import numpy as np
+import math
 
 '''
 Author: Enrico Ceccolini
@@ -39,7 +40,8 @@ def main():
     # save CPU data (one file per node)
     # notice that 43 doesn't exists in the db
     cpus = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64']
-    # cpus=['05'] # test
+    cpus = ['31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '44', '45']
+    # cpus = ['09'] # test
 
     ### read the data
     jobs_to_nodes_whole_data = pd.read_csv(infile_jobs_to_nodes)
@@ -100,7 +102,7 @@ def main():
             job_mics = row['nmics']
             
             before_minutes = int((start_time - pd.to_datetime(node_start_time)) / np.timedelta64(1, 'm'))
-            running_minutes = int((end_time - start_time) / np.timedelta64(1, 'm'))
+            running_minutes = math.ceil(((end_time + np.timedelta64(1, 'm') - start_time) / np.timedelta64(1, 'm')))
             after_minutes = num_minutes - running_minutes - before_minutes
             # print("{} - {} - {}".format(before_minutes, running_minutes, after_minutes))
             before_serie = pd.Series(0, index=np.arange(before_minutes))

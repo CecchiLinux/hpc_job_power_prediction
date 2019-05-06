@@ -34,6 +34,9 @@ RUN pip3 install numpy pandas sklearn matplotlib seaborn jupyter pyyaml h5py && 
     pip3 install opencv-python && \
     pip3 install imutils
 
+RUN pip3 install https://github.com/ipython-contrib/jupyter_contrib_nbextensions/tarball/master
+
+
 RUN ["mkdir", "notebooks"]
 RUN ["mkdir", "datasets"]
 COPY conf/.jupyter /root/.jupyter
