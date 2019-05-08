@@ -17,7 +17,7 @@ def main():
 
     jobs_file = datadir + 'jobs.csv'
 
-    global_start_time = pd.to_datetime('2014-03-31')
+    global_start_time = pd.to_datetime('2014-03-24')
     global_end_time = pd.to_datetime('2015-08-12')
 
     # interval_comment = "April_new"

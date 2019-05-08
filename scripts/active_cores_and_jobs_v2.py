@@ -34,7 +34,7 @@ def main():
     # end_time = pd.to_datetime('2014-05-01')
 
     interval_comment = "WholeData"
-    start_time = pd.to_datetime('2014-03-31')
+    start_time = pd.to_datetime('2014-03-24')
     end_time = pd.to_datetime('2015-08-12')
 
     # save CPU data (one file per node)
