@@ -3,6 +3,7 @@
 import pandas as pd
 import errno    
 import os, sys
+import numpy as np
 
 '''
 Author: Enrico Ceccolini
@@ -16,12 +17,15 @@ def main():
 
     jobs_file = datadir + 'jobs.csv'
 
+    global_start_time = pd.to_datetime('2014-03-31')
+    global_end_time = pd.to_datetime('2015-08-12')
+
     # interval_comment = "April_new"
     # start_time = pd.to_datetime('2014-04-01')
     # end_time = pd.to_datetime('2014-05-01')
-    interval_comment = "Whole"
-    start_time = pd.to_datetime('2014-03-31')
-    end_time = pd.to_datetime('2015-08-11')
+    interval_comment = "WholeData"
+    # start_time = pd.to_datetime('2014-03-31')
+    # end_time = pd.to_datetime('2015-08-11')
 
     mkdir_p(datadir + 'CPUs/' + interval_comment)
 
@@ -32,7 +36,9 @@ def main():
      '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', 
      '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', 
      '61', '62', '63', '64']
-    # cpus=['05'] # test
+    #cpus=['01', '03', '04', '05', '06'] # test
+    #cpus = ['07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64']
+    #cpus=['01'] # test
 
     for cpu in cpus:
         print(cpu)
@@ -50,8 +56,11 @@ def main():
         print("data rows after drop_duplicates {}".format(whole_node_power_data.shape[0]))
 
         # select data in the specified interval
-        interval_data = whole_node_power_data.loc[(pd.to_datetime(whole_node_power_data['timestamp']) >= start_time) & (pd.to_datetime(whole_node_power_data['timestamp']) <= end_time)]
-        print("data row from {} to {}: {}".format(start_time, end_time, interval_data.shape[0]))
+        #interval_data = whole_node_power_data.loc[(pd.to_datetime(whole_node_power_data['timestamp']) >= start_time) & (pd.to_datetime(whole_node_power_data['timestamp']) <= end_time)]
+        #print("data row from {} to {}: {}".format(start_time, end_time, interval_data.shape[0]))
+        # no more interval
+        interval_data = whole_node_power_data
+
 
         # split the data referring to the cpu0 and cpu0
         cpu0 = interval_data[interval_data['cpu_id'] == 0]
@@ -88,6 +97,20 @@ def main():
         # remove useless columns
         cpu0_1min = cpu0_1min.drop(['cpu_id'], axis=1)
         cpu1_1min = cpu1_1min.drop(['cpu_id'], axis=1)
+
+        # insert padding to have the same indices on all nodes
+        first_date = cpu0_1min.index[0]
+        last_date = cpu0_1min.index[cpu0_1min.shape[0]-1]
+        index_before = pd.date_range(start=global_start_time, end=first_date - np.timedelta64(1, 'm'), freq='1Min')
+        index_after = pd.date_range(start=last_date + np.timedelta64(1, 'm'), end=global_end_time, freq='1Min')
+        padding_before = pd.DataFrame(index=index_before, columns=['pow_cpu', 'pow_dram', 'pow_pkg'])
+        padding_before.index.name = 'timestamp'
+        padding_after = pd.DataFrame(index=index_after, columns=['pow_cpu', 'pow_dram', 'pow_pkg'])
+        padding_after.index.name = 'timestamp'
+        cpu0_1min = pd.concat([padding_before, cpu0_1min])
+        cpu1_1min = pd.concat([padding_before, cpu1_1min])
+        cpu0_1min = pd.concat([cpu0_1min, padding_after])
+        cpu1_1min = pd.concat([cpu1_1min, padding_after])
 
         # rename columns for the concat
         cpu0_1min = cpu0_1min.rename(index=str, columns={"pow_cpu": "pow_cpu_0", "pow_dram": "pow_dram_0", "pow_pkg": "pow_pkg_0"})
