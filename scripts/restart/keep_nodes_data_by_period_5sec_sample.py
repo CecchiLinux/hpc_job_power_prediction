@@ -9,23 +9,26 @@ import numpy as np
 Author: Enrico Ceccolini
     Given the raw data of Eurora (CORE_MEASUREMENT_FULL)
     and a time interval, it returns only the measurements
-    of that period, sampled at 1 minute intervals
+    of that period, sampled at 5sec intervals
 '''
 
 def main():
     datadir = "/datasets/eurora_data/db/"
 
-    jobs_file = datadir + 'jobs.csv'
-
-    global_start_time = pd.to_datetime('2014-03-24')
-    global_end_time = pd.to_datetime('2015-08-12')
+    #global_start_time = pd.to_datetime('2014-03-24')
+    #global_end_time = pd.to_datetime('2015-08-12')
 
     # interval_comment = "April_new"
     # start_time = pd.to_datetime('2014-04-01')
     # end_time = pd.to_datetime('2014-05-01')
-    interval_comment = "WholeData"
+    # interval_comment = "WholeData"
     # start_time = pd.to_datetime('2014-03-31')
     # end_time = pd.to_datetime('2015-08-11')
+
+    ## 4 settings AfterAlina
+    interval_comment = "BeforeAlina"
+    start_time = pd.to_datetime('2014-03-31')
+    end_time = pd.to_datetime('2014-07-01')
 
     mkdir_p(datadir + 'CPUs/' + interval_comment)
 
@@ -36,9 +39,7 @@ def main():
      '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', 
      '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', 
      '61', '62', '63', '64']
-    cpus = ['39', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64']
-    #cpus=['01', '03', '04', '05', '06'] # test
-    #cpus = ['07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64']
+
     #cpus=['01'] # test
 
     for cpu in cpus:
@@ -57,13 +58,13 @@ def main():
         print("data rows after drop_duplicates {}".format(whole_node_power_data.shape[0]))
 
         # select data in the specified interval
-        #interval_data = whole_node_power_data.loc[(pd.to_datetime(whole_node_power_data['timestamp']) >= start_time) & (pd.to_datetime(whole_node_power_data['timestamp']) <= end_time)]
+        interval_data = whole_node_power_data.loc[(pd.to_datetime(whole_node_power_data['timestamp']) >= start_time) & (pd.to_datetime(whole_node_power_data['timestamp']) <= end_time)]
         #print("data row from {} to {}: {}".format(start_time, end_time, interval_data.shape[0]))
         # no more interval
-        whole_node_power_data['pow_tot'] = whole_node_power_data['pow_cpu'] + whole_node_power_data['pow_dram'] +  whole_node_power_data['pow_pkg']
-        whole_node_power_data = whole_node_power_data.drop(['pow_dram', 'pow_pkg', 'pow_cpu'], axis=1)
+        interval_data['pow_tot'] = interval_data['pow_cpu'] + interval_data['pow_dram'] +  interval_data['pow_pkg']
+        interval_data = interval_data.drop(['pow_dram', 'pow_pkg', 'pow_cpu'], axis=1)
         
-        interval_data = whole_node_power_data
+        #interval_data = whole_node_power_data
 
 
         # split the data referring to the cpu0 and cpu0
@@ -105,8 +106,8 @@ def main():
         # insert padding to have the same indices on all nodes
         first_date = cpu0_5sec.index[0]
         last_date = cpu0_5sec.index[cpu0_5sec.shape[0]-1]
-        index_before = pd.date_range(start=global_start_time, end=first_date - np.timedelta64(5, 's'), freq='5s')
-        index_after = pd.date_range(start=last_date + np.timedelta64(5, 's'), end=global_end_time, freq='5s')
+        index_before = pd.date_range(start=start_time, end=first_date - np.timedelta64(5, 's'), freq='5s')
+        index_after = pd.date_range(start=last_date + np.timedelta64(5, 's'), end=end_time, freq='5s')
         padding_before = pd.DataFrame(index=index_before, columns=['pow_tot'])
         padding_before.index.name = 'timestamp'
         padding_after = pd.DataFrame(index=index_after, columns=['pow_tot'])
