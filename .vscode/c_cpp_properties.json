@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor",
+                "${workspaceFolder}/pow_predictor"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}
