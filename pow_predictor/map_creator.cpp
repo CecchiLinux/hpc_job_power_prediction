@@ -131,7 +131,7 @@ struct User
             perUserJob += it2->second.print() + "\n";
             it2++;
         }
-        return perUser + "\n" + perUserNode + "\n" + perUserJob;
+        return perUser + "\n" + perUserNode + "\n" + perUserJob + "\n";
     }
 };
 
