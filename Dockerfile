@@ -11,6 +11,15 @@ RUN apt-get update && apt-get install -y wget ca-certificates \
     libfreetype6-dev libhdf5-dev && \
     rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install --upgrade pip
+
+RUN pip3 install --upgrade setuptools && \
+    pip3 install numpy pandas sklearn matplotlib seaborn jupyter pyyaml h5py && \
+    pip3 install opencv-python && \
+    pip3 install imutils
+
+RUN pip3 install https://github.com/ipython-contrib/jupyter_contrib_nbextensions/tarball/master
+
 RUN wget -O opencv.tar.gz https://github.com/opencv/opencv/archive/3.3.1.tar.gz && \
     tar zxvf opencv.tar.gz && \
     wget -O opencv_contrib.tar.gz https://github.com/opencv/opencv_contrib/archive/3.3.1.tar.gz && \
@@ -30,11 +39,9 @@ RUN cd opencv-3.3.1 && \
     ldconfig && \
     cd / && rm -Rf /opencv-3.3.1 /opencv_contrib-3.3.1
 
-RUN pip3 install numpy pandas sklearn matplotlib seaborn jupyter pyyaml h5py && \
-    pip3 install opencv-python && \
-    pip3 install imutils
+#RUN python3 -m pip uninstall pip && apt-get install -y python3-pip --reinstall
 
-RUN pip3 install https://github.com/ipython-contrib/jupyter_contrib_nbextensions/tarball/master
+
 
 
 RUN ["mkdir", "notebooks"]

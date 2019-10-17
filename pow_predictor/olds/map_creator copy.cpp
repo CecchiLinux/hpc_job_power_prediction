@@ -6,11 +6,16 @@
 #include <string>
 #include <map>
 
-//#include <boost/archive/binary_oarchive.hpp> 
-//#include <boost/archive/binary_iarchive.hpp> 
-//#include <boost/serialization/map.hpp> 
-//#include <boost/serialization/string.hpp> 
-//#include <boost/serialization/list.hpp> 
+
+/**
+ * Creates an Hashmap of mean-core-consumptions starting from a CSV file like (convert_dict.csv)
+ * 
+ * id,user,job,tot_cores,node_id,req_cores,real_pow
+ * 0,user1,user1-job1,16,9,16,213.90723480321014
+ * 1,user2,user2-job1,96,9,16,1232.7223322824611
+ * 
+ * 
+ */
 
 class CSVRow
 {
@@ -55,10 +60,10 @@ std::istream &operator>>(std::istream &str, CSVRow &data)
     return str;
 }
 
-struct MeanCoreCons
-{
-    std::pair<double, int> value; // <mcc, counts>
-};
+// struct MeanCoreCons
+// {
+//     std::pair<double, int> value; // <mcc, counts>
+// };
 
 struct Node
 {
