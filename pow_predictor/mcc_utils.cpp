@@ -8,10 +8,23 @@
 #include <string>
 #include <algorithm> 
 
+/**
+ * Contains the hashmap (MainMCCMap class) used by the predictor methods:
+ * - perNode;
+ * - perUser;
+ * - perUserNode;
+ * - perUserJob;
+ * - perUserJobNode;
+ * 
+ * Contains also all the methods to create, serialize and update the map. 
+ * 
+ * Create the map (and serialize it): call the createMap function
+ * Load the map: call the loadMap function (returns a MainMCCMap object)
+ */
 
 namespace mcc_utils{
 
-    class Element {
+    class Element { // base class
         public:
             std::pair<double, int> mcc; 
 
@@ -42,6 +55,11 @@ namespace mcc_utils{
         public:
             std::map<std::string, Node> nodes; // perUserJobNode method
 
+            void addNode(std::string node, double mcc){
+                nodes[node] = Node();
+                nodes[node].mcc = std::pair<double, int>(mcc, 1);
+            }
+
             std::string print()
             {
                 std::string perUserJob = "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
@@ -66,6 +84,16 @@ namespace mcc_utils{
         public:
             std::map<std::string, Node> nodes;
             std::map<std::string, Job> jobs;
+
+            void addNode(std::string node, double mcc){
+                nodes[node] = Node();
+                nodes[node].mcc = std::pair<double, int>(mcc, 1);
+            }
+
+            void addJob(std::string job, double mcc){
+                jobs[job] = Job();
+                jobs[job].mcc = std::pair<double, int>(mcc, 1);
+            }
 
             std::string print()
             {
@@ -103,32 +131,6 @@ namespace mcc_utils{
         public: 
             std::map<std::string, Node> nodes; // perNode method
             std::map<std::string, User> users;
-
-            double predict(std::string user, std::string job, std::vector<std::string> nodes, std::vector<int> cores, std::vector<int> thresholds){
-                double power_consumption = 0;
-                std::pair<double, int> currentMCC;
-                for(int i=0; i<nodes.size(); i++){
-                    currentMCC = perUserJobNode(user, job, nodes[i]);
-                    if(currentMCC.second <= thresholds[0]){
-                        //std::cout << "entrato 1" << std::endl;
-                        currentMCC = perUserJob(user, job);
-                        if(currentMCC.second <= thresholds[1]){
-                            //std::cout << "entrato 2" << std::endl;
-                            currentMCC = perUserNode(user, nodes[i]);
-                            if(currentMCC.second <= thresholds[2]){
-                                //std::cout << "entrato 3" << std::endl;
-                                currentMCC = perUser(user);
-                                if(currentMCC.second <= thresholds[3]){
-                                    //std::cout << "entrato 4" << std::endl;
-                                    currentMCC = perNode(nodes[i]);
-                                }
-                            }
-                        }
-                    }
-                    power_consumption += currentMCC.first*cores[i];
-                }
-                return power_consumption;
-            }
 
             std::pair<double, int> perNode(std::string node){
                 try {
@@ -193,6 +195,83 @@ namespace mcc_utils{
                 } catch (std::out_of_range e) {
                     return std::pair<double, int> (0, 0);
                 };
+            }
+
+            double predict(std::string user, std::string job, std::vector<std::string> nodes, std::vector<int> cores, std::vector<int> thresholds){
+                double power_consumption = 0;
+                std::pair<double, int> currentMCC;
+                for(int i=0; i<nodes.size(); i++){
+                    currentMCC = perUserJobNode(user, job, nodes[i]);
+                    if(currentMCC.second <= thresholds[0]){
+                        //std::cout << "entrato 1" << std::endl;
+                        currentMCC = perUserJob(user, job);
+                        if(currentMCC.second <= thresholds[1]){
+                            //std::cout << "entrato 2" << std::endl;
+                            currentMCC = perUserNode(user, nodes[i]);
+                            if(currentMCC.second <= thresholds[2]){
+                                //std::cout << "entrato 3" << std::endl;
+                                currentMCC = perUser(user);
+                                if(currentMCC.second <= thresholds[3]){
+                                    //std::cout << "entrato 4" << std::endl;
+                                    currentMCC = perNode(nodes[i]);
+                                }
+                            }
+                        }
+                    }
+                    power_consumption += currentMCC.first*cores[i];
+                }
+                return power_consumption;
+            }
+
+            void updateMap(std::string user, std::string job, std::string node, int ncores_tot, double real_pow){
+                double mcc = real_pow / ncores_tot;
+
+                try {
+                    Node *n = &nodes.at(node);
+                    n->update(mcc);
+
+                } catch (std::out_of_range) {
+                    nodes[node] = Node();
+                    nodes[node].mcc = std::pair<double, int>(mcc, 1);
+                }
+
+                try {
+                    User *u = &users.at(user);
+                    u->update(mcc);
+                    // perUserNode
+                    try {
+                        Node *n = &u->nodes.at(node);
+                        n->update(mcc);
+
+                    } catch (std::out_of_range) {
+                        u->nodes[node] = Node();
+                        u->nodes[node].mcc = std::pair<double, int>(mcc, 1);
+                    }
+                    // perUserJob
+                    try {
+                        Job *j = &u->jobs.at(job);
+                        j->update(mcc);
+                        // perUserJobNode
+                        try {
+                            Node *n = &j->nodes.at(node);
+                            n->update(mcc);
+
+                        } catch (std::out_of_range){
+                            j->addNode(node, mcc);
+                        }
+
+                    } catch (std::out_of_range){ // job doesn't exist
+                        u->addJob(job, mcc);
+                        u->jobs[job].addNode(node, mcc);// perUserJobNode
+                    }
+
+                } catch (std::out_of_range){ // user doesn't exist
+                    users[user] = User();// perUser
+                    users[user].mcc = std::pair<double, int>(mcc, 1);
+                    users[user].addNode(node, mcc);// perUserNode
+                    users[user].addJob(job, mcc);// perUserJob
+                    users[user].jobs[job].addNode(node, mcc);// preUserJobNode
+                }
             }
 
             std::string print()
@@ -309,12 +388,11 @@ namespace mcc_utils{
      * 1,user2,user2-job1,96,9,16,1232.7223322824611
      * 
      */
-    int create_map(std::string inputFile, std::string outputFile)
+    int createMap(std::string inputFile, std::string outputFile)
     {
         MainMCCmap mcc_map;
         mcc_map.users = std::map<std::string, User>();
         mcc_map.nodes = std::map<std::string, Node>();
-        //std::ifstream file("convert_dict_copy.csv");
         std::ifstream file(inputFile);
         CSVRow row;
         while (file >> row)
@@ -327,79 +405,7 @@ namespace mcc_utils{
             int ncores = std::stoi(row[5]);
             double real_pow = std::stod(row[6]);
 
-            double mcc = real_pow / ncores_tot;
-
-            try {
-                Node *n = &mcc_map.nodes.at(node);
-                // perNode if exist
-                n->update(mcc);
-            } catch (std::out_of_range) {
-                // perNode if NOT exist
-                mcc_map.nodes[node] = Node();
-                mcc_map.nodes[node].mcc = std::pair<double, int>(mcc, 1);
-                // std::cout << "node NOT exist" << std::endl;
-                // std::cout << mcc_map.nodes[node].print() << std::endl;
-            }
-
-            try {
-                User *u = &mcc_map.users.at(user);
-                // perUser if exist
-                u->update(mcc);
-
-                // perUserNode
-                try {
-                    Node *n = &u->nodes.at(node);
-                    // perUserNode if exist
-                    n->update(mcc);
-
-                } catch (std::out_of_range) {
-                    // perUserNode if NOT exist
-                    u->nodes[node] = Node();
-                    u->nodes[node].mcc = std::pair<double, int>(mcc, 1);
-                }
-
-                // perUserJob
-                try {
-                    Job *j = &u->jobs.at(job);
-                    // per UserJob if exist 
-                    j->update(mcc);
-
-                    // perUserJobNode
-                    try {
-                        Node *n = &j->nodes.at(node);
-                        // perUserJobNode if node exist
-                        n->update(mcc);
-
-                    } catch (std::out_of_range){
-                        // perUserJobNode if node NOT exist
-                        j->nodes[node] = Node();
-                        j->nodes[node].mcc = std::pair<double, int>(mcc, 1);
-                    }
-
-                } catch (std::out_of_range){ // job doesn't exist
-                    // perUserJob if NOT exist
-                    u->jobs[job]  = Job();
-                    u->jobs[job].mcc = std::pair<double, int>(mcc, 1); 
-                    // perUserJobNode
-                    u->jobs[job].nodes[node] = Node();
-                    u->jobs[job].nodes[node].mcc = std::pair<double, int>(mcc, 1); 
-                }
-
-            } catch (std::out_of_range){ // user doesn't exist
-                // perUser
-                mcc_map.users[user] = User();
-                mcc_map.users[user].mcc = std::pair<double, int>(mcc, 1);
-                // perUserNode
-                mcc_map.users[user].nodes[node] = Node();
-                mcc_map.users[user].nodes[node].mcc = std::pair<double, int>(mcc, 1);
-                // perUserJob
-                mcc_map.users[user].jobs[job] = Job();
-                mcc_map.users[user].jobs[job].mcc = std::pair<double, int>(mcc, 1);
-                // preUserJobNode
-                mcc_map.users[user].jobs[job].nodes[node] = Node();
-                mcc_map.users[user].jobs[job].nodes[node].mcc = std::pair<double, int>(mcc, 1);
-
-            }
+            mcc_map.updateMap(user, job, node, ncores_tot, real_pow);
 
         }
 

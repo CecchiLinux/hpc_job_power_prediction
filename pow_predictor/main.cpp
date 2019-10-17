@@ -9,7 +9,7 @@ const string output_mcc = "mcc_map";
 int main() {
     mcc_utils::MainMCCmap mcc_map;
     
-    //mcc_utils::create_map(input_pow_csv, output_mcc); // convert the csv file into an hashmap and serialize it (to mcc_map file)
+    //mcc_utils::createMap(input_pow_csv, output_mcc); // convert the csv file into an hashmap and serialize it (to mcc_map file)
     mcc_map = mcc_utils::loadMap(output_mcc); // load the mcc map
 
     /* 
@@ -35,6 +35,6 @@ int main() {
     // // perUserJobNode
     // cout << mcc_map.perUserJobNode(user1, job2, node2).first << endl;
 
-    cout << mcc_map.predict(user1, job2, nodes, cores, thresholds) << endl;
+    cout << mcc_map.predict(user1, job2, nodes, cores, thresholds) << endl; // use the most accurate method
 
 }
