@@ -8,17 +8,222 @@
 #include <string>
 #include <algorithm> 
 
-/**
- * Creates an Hashmap of mean-core-consumptions starting from a CSV file like (convert_dict.csv)
- * 
- * id,user,job,tot_cores,node_id,req_cores,real_pow
- * 0,user1,user1-job1,16,9,16,213.90723480321014
- * 1,user2,user2-job1,96,9,16,1232.7223322824611
- * 
- * 
- */
 
 namespace mcc_utils{
+
+    class Element {
+        public:
+            std::pair<double, int> mcc; 
+
+            virtual std::string print() = 0; 
+
+            void update(double newMcc){
+                mcc.first = getAvg(mcc.first, mcc.second, newMcc);
+                mcc.second = mcc.second+1;
+            }
+        private:
+            double getAvg(double original_mcc, int count, double mcc)
+            {
+                return (original_mcc*count + mcc*1) / (count + 1);
+            }
+    };
+
+    class Node: public Element
+    {
+        public:
+            std::string print()
+            {
+                return "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
+            }
+    };
+
+    class Job: public Element
+    {
+        public:
+            std::map<std::string, Node> nodes; // perUserJobNode method
+
+            std::string print()
+            {
+                std::string perUserJob = "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
+
+                std::string perUserJobNode = "";
+                std::map<std::string, Node>::iterator it = nodes.begin();
+                while (it != nodes.end())
+                {
+                    // Accessing KEY from element pointed by it.
+                    std::string node_id = it->first;
+                    perUserJobNode += "\t\t" + node_id + ": ";
+                    // Accessing VALUE from element pointed by it.
+                    perUserJobNode += it->second.print() + "\n";
+                    it++;
+                }
+                return perUserJob + "\n" + perUserJobNode;
+            }
+    };
+
+    class User: public Element
+    {
+        public:
+            std::map<std::string, Node> nodes;
+            std::map<std::string, Job> jobs;
+
+            std::string print()
+            {
+                std::string perUser = "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
+
+                std::string perUserNode = "";
+                std::map<std::string, Node>::iterator it = nodes.begin();
+                while (it != nodes.end())
+                {
+                    // Accessing KEY from element pointed by it.
+                    std::string node_id = it->first;
+                    perUserNode += "\t" + node_id + ": ";
+                    // Accessing VALUE from element pointed by it.
+                    perUserNode += it->second.print() + "\n";
+                    it++;
+                }
+
+                std::string perUserJob = "";
+                std::map<std::string, Job>::iterator it2 = jobs.begin();
+                while (it2 != jobs.end())
+                {
+                    // Accessing KEY from element pointed by it.
+                    std::string job_name = it2->first;
+                    perUserJob += "\t" + job_name + ": ";
+                    // Accessing VALUE from element pointed by it.
+                    perUserJob += it2->second.print() + "\n";
+                    it2++;
+                }
+                return perUser + "\n" + perUserNode + "\n" + perUserJob + "\n";
+            }
+    };
+
+    class MainMCCmap
+    {
+        public: 
+            std::map<std::string, Node> nodes; // perNode method
+            std::map<std::string, User> users;
+
+            double predict(std::string user, std::string job, std::vector<std::string> nodes, std::vector<int> cores, std::vector<int> thresholds){
+                double power_consumption = 0;
+                std::pair<double, int> currentMCC;
+                for(int i=0; i<nodes.size(); i++){
+                    currentMCC = perUserJobNode(user, job, nodes[i]);
+                    if(currentMCC.second <= thresholds[0]){
+                        //std::cout << "entrato 1" << std::endl;
+                        currentMCC = perUserJob(user, job);
+                        if(currentMCC.second <= thresholds[1]){
+                            //std::cout << "entrato 2" << std::endl;
+                            currentMCC = perUserNode(user, nodes[i]);
+                            if(currentMCC.second <= thresholds[2]){
+                                //std::cout << "entrato 3" << std::endl;
+                                currentMCC = perUser(user);
+                                if(currentMCC.second <= thresholds[3]){
+                                    //std::cout << "entrato 4" << std::endl;
+                                    currentMCC = perNode(nodes[i]);
+                                }
+                            }
+                        }
+                    }
+                    power_consumption += currentMCC.first*cores[i];
+                }
+                return power_consumption;
+            }
+
+            std::pair<double, int> perNode(std::string node){
+                try {
+                    Node *n = &nodes.at(node);
+                    return n->mcc; // perNode if exist
+                } catch (std::out_of_range e) {
+                    return std::pair<double, int> (0, 0);
+                };
+            }
+
+            std::pair<double, int> perUser(std::string user){
+                try {
+                    User *u = &users.at(user);
+                    return u->mcc;
+                } catch (std::out_of_range e) {
+                    return std::pair<double, int> (0, 0);
+                };
+            }
+
+            std::pair<double, int> perUserNode(std::string user, std::string node){
+                try {
+                    User *u = &users.at(user);
+                    try {
+                        Node *n = &u->nodes.at(node);
+                        return n->mcc;
+                    } catch (std::out_of_range e) {
+                        return std::pair<double, int> (0, 0);
+                    };
+                } catch (std::out_of_range e) {
+                    return std::pair<double, int> (0, 0);
+                };
+            }
+
+            std::pair<double, int> perUserJob(std::string user, std::string job){
+                try {
+                    User *u = &users.at(user);
+                    try {
+                        Job *j = &u->jobs.at(job);
+                        return j->mcc;
+                    } catch (std::out_of_range e) {
+                        return std::pair<double, int> (0, 0);
+                    };
+                } catch (std::out_of_range e) {
+                    return std::pair<double, int> (0, 0);
+                };
+            }
+
+            std::pair<double, int> perUserJobNode(std::string user, std::string job, std::string node){
+                try {
+                    User *u = &users.at(user);
+                    try {
+                        Job *j = &u->jobs.at(job);
+                        try {
+                            Node *n = &j->nodes.at(node);
+                            return n->mcc;
+                        } catch (std::out_of_range e) {
+                            return std::pair<double, int> (0, 0);
+                        };
+                    } catch (std::out_of_range e) {
+                        return std::pair<double, int> (0, 0);
+                    };
+                } catch (std::out_of_range e) {
+                    return std::pair<double, int> (0, 0);
+                };
+            }
+
+            std::string print()
+            {
+                std::string users_str = "\n";
+                std::map<std::string, User>::iterator it = users.begin();
+                while (it != users.end())
+                {
+                    // Accessing KEY from element pointed by it.
+                    std::string user_name = it->first;
+                    users_str += "" + user_name + ": ";
+                    // Accessing VALUE from element pointed by it.
+                    users_str += it->second.print() + "";
+                    it++;
+                }
+
+                std::string nodes_str = "";
+                std::map<std::string, Node>::iterator it2 = nodes.begin();
+                while (it2 != nodes.end())
+                {
+                    // Accessing KEY from element pointed by it.
+                    std::string node_id = it2->first;
+                    nodes_str += node_id + ": ";
+                    // Accessing VALUE from element pointed by it.
+                    nodes_str += it2->second.print() + "\n";
+                    it2++;
+                }
+                return nodes_str + "" + users_str + "";
+            }
+
+    };
 
     class CSVRow
     {
@@ -63,214 +268,6 @@ namespace mcc_utils{
         return str;
     }
 
-    struct Node
-    {
-        std::pair<double, int> mcc; // <mcc, counts>
-
-        void update(double newMcc){
-            mcc.first = getAvg(mcc.first, mcc.second, newMcc);
-            mcc.second = mcc.second+1;
-        }
-
-        std::string print()
-        {
-            return "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
-        }
-    };
-
-    struct Job
-    {
-        std::map<std::string, Node> nodes; // perUserJobNode method
-        std::pair<double, int> mcc;        // <mcc, counts>
-
-        void update(double newMcc){
-            mcc.first = getAvg(mcc.first, mcc.second, newMcc);
-            mcc.second = mcc.second+1;
-        }
-
-        std::string print()
-        {
-            std::string perUserJob = "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
-
-            std::string perUserJobNode = "";
-            std::map<std::string, Node>::iterator it = nodes.begin();
-            while (it != nodes.end())
-            {
-                // Accessing KEY from element pointed by it.
-                std::string node_id = it->first;
-                perUserJobNode += "\t\t" + node_id + ": ";
-                // Accessing VALUE from element pointed by it.
-                perUserJobNode += it->second.print() + "\n";
-                it++;
-            }
-            return perUserJob + "\n" + perUserJobNode;
-        }
-    };
-
-    struct User
-    {
-        std::pair<double, int> mcc; // <mcc, counts>
-        std::map<std::string, Node> nodes;
-        std::map<std::string, Job> jobs;
-
-        void update(double newMcc){
-            mcc.first = getAvg(mcc.first, mcc.second, newMcc);
-            mcc.second = mcc.second+1;
-        }
-
-        std::string print()
-        {
-            std::string perUser = "{" + std::to_string(mcc.first) +  "," + std::to_string(mcc.second) + "}";
-
-            std::string perUserNode = "";
-            std::map<std::string, Node>::iterator it = nodes.begin();
-            while (it != nodes.end())
-            {
-                // Accessing KEY from element pointed by it.
-                std::string node_id = it->first;
-                perUserNode += "\t" + node_id + ": ";
-                // Accessing VALUE from element pointed by it.
-                perUserNode += it->second.print() + "\n";
-                it++;
-            }
-
-            std::string perUserJob = "";
-            std::map<std::string, Job>::iterator it2 = jobs.begin();
-            while (it2 != jobs.end())
-            {
-                // Accessing KEY from element pointed by it.
-                std::string job_name = it2->first;
-                perUserJob += "\t" + job_name + ": ";
-                // Accessing VALUE from element pointed by it.
-                perUserJob += it2->second.print() + "\n";
-                it2++;
-            }
-            return perUser + "\n" + perUserNode + "\n" + perUserJob + "\n";
-        }
-    };
-
-    struct MainMCCmap
-    {
-        std::map<std::string, Node> nodes; // perNode method
-        std::map<std::string, User> users;
-
-        std::pair<double, int> perNode(std::string node){
-            try {
-                Node *n = &nodes.at(node);
-                return n->mcc; // perNode if exist
-            } catch (std::out_of_range e) {
-                throw e;
-            };
-        }
-
-        std::pair<double, int> perUser(std::string user){
-            try {
-                User *u = &users.at(user);
-                return u->mcc;
-            } catch (std::out_of_range e) {
-                throw e;
-            };
-        }
-
-        std::pair<double, int> perUserNode(std::string user, std::string node){
-            try {
-                User *u = &users.at(user);
-                try {
-                    Node *n = &u->nodes.at(node);
-                    return n->mcc;
-                } catch (std::out_of_range e) {
-                    throw e;
-                };
-            } catch (std::out_of_range e) {
-                throw e;
-            };
-        }
-
-        std::pair<double, int> perUserJob(std::string user, std::string job){
-            try {
-                User *u = &users.at(user);
-                try {
-                    Job *j = &u->jobs.at(job);
-                    return j->mcc;
-                } catch (std::out_of_range e) {
-                    throw e;
-                };
-            } catch (std::out_of_range e) {
-                throw e;
-            };
-        }
-
-        std::pair<double, int> perUserJobNode(std::string user, std::string job, std::string node){
-            try {
-                User *u = &users.at(user);
-                try {
-                    Job *j = &u->jobs.at(job);
-                    try {
-                        Node *n = &j->nodes.at(node);
-                        return n->mcc;
-                    } catch (std::out_of_range e) {
-                        throw e;
-                    };
-                } catch (std::out_of_range e) {
-                    throw e;
-                };
-            } catch (std::out_of_range e) {
-                throw e;
-            };
-        }
-
-        std::string print()
-        {
-            std::string users_str = "\n";
-            std::map<std::string, User>::iterator it = users.begin();
-            while (it != users.end())
-            {
-                // Accessing KEY from element pointed by it.
-                std::string user_name = it->first;
-                users_str += "" + user_name + ": ";
-                // Accessing VALUE from element pointed by it.
-                users_str += it->second.print() + "";
-                it++;
-            }
-
-            std::string nodes_str = "";
-            std::map<std::string, Node>::iterator it2 = nodes.begin();
-            while (it2 != nodes.end())
-            {
-                // Accessing KEY from element pointed by it.
-                std::string node_id = it2->first;
-                nodes_str += node_id + ": ";
-                // Accessing VALUE from element pointed by it.
-                nodes_str += it2->second.print() + "\n";
-                it2++;
-            }
-            return nodes_str + "" + users_str + "";
-        }
-    };
-
-    double getAvg(double original_mcc, int count, double mcc)
-    {
-        return (original_mcc*count + mcc*1) / (count + 1);
-    }
-
-    void updateNode(Node *n, double mcc)
-    {
-        n->mcc.first = getAvg(n->mcc.first, n->mcc.second, mcc);
-        n->mcc.second = n->mcc.second+1;
-    }
-
-    void updateUser(User *u, double mcc)
-    {
-        u->mcc.first = getAvg(u->mcc.first, u->mcc.second, mcc);
-        u->mcc.second = u->mcc.second+1;
-    }
-
-    void updateJob(Job *j, double mcc)
-    {
-        j->mcc.first = getAvg(j->mcc.first, j->mcc.second, mcc);
-        j->mcc.second = j->mcc.second+1;
-    }
-
     std::vector<std::string> split(std::string strToSplit, char delimeter)
     {
         std::stringstream ss(strToSplit);
@@ -304,6 +301,14 @@ namespace mcc_utils{
         return values;
     }
 
+    /**
+     * Creates an Hashmap of mean-core-consumptions starting from a CSV file like (convert_dict.csv)
+     * 
+     * id,user,job,tot_cores,node_id,req_cores,real_pow
+     * 0,user1,user1-job1,16,9,16,213.90723480321014
+     * 1,user2,user2-job1,96,9,16,1232.7223322824611
+     * 
+     */
     int create_map(std::string inputFile, std::string outputFile)
     {
         MainMCCmap mcc_map;
@@ -312,11 +317,8 @@ namespace mcc_utils{
         //std::ifstream file("convert_dict_copy.csv");
         std::ifstream file(inputFile);
         CSVRow row;
-        // int i = 0;
         while (file >> row)
         {
-            // std::cout << i;
-            // i++;
             // _, user, job, ncores_tot, node_id, ncores, real_pow
             std::string user = row[1];
             std::string job = row[2];
@@ -330,9 +332,7 @@ namespace mcc_utils{
             try {
                 Node *n = &mcc_map.nodes.at(node);
                 // perNode if exist
-                updateNode(n, mcc);
-                // std::cout << "node exist" << std::endl;
-                // std::cout << n->print() << std::endl;
+                n->update(mcc);
             } catch (std::out_of_range) {
                 // perNode if NOT exist
                 mcc_map.nodes[node] = Node();
@@ -344,13 +344,13 @@ namespace mcc_utils{
             try {
                 User *u = &mcc_map.users.at(user);
                 // perUser if exist
-                updateUser(u, mcc);
+                u->update(mcc);
 
                 // perUserNode
                 try {
                     Node *n = &u->nodes.at(node);
                     // perUserNode if exist
-                    updateNode(n, mcc);
+                    n->update(mcc);
 
                 } catch (std::out_of_range) {
                     // perUserNode if NOT exist
@@ -362,13 +362,13 @@ namespace mcc_utils{
                 try {
                     Job *j = &u->jobs.at(job);
                     // per UserJob if exist 
-                    updateJob(j, mcc);
+                    j->update(mcc);
 
                     // perUserJobNode
                     try {
                         Node *n = &j->nodes.at(node);
                         // perUserJobNode if node exist
-                        updateNode(n, mcc);
+                        n->update(mcc);
 
                     } catch (std::out_of_range){
                         // perUserJobNode if node NOT exist
@@ -433,7 +433,6 @@ namespace mcc_utils{
             while ( getline (myfile, line) )
             {
                 // std::cout << line << '\n';
-                // line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
                 switch(stateA)
                 {
                     case 0: // perNode
