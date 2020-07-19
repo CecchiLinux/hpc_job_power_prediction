@@ -4,6 +4,7 @@
 
 ### Mine
 datasets/
+.vscode/
 
 
 ### JupyterNotebook ###
