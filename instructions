@@ -1,0 +1,11 @@
+pacman -S docker
+
+groupadd docker
+sudo usermod -aG docker ${USER}
+
+# systemctl start docker.service
+# systemctl enable docker.service
+
+# groupadd docker
+ 
+# gpasswd -a user docker [replace user with your username]
