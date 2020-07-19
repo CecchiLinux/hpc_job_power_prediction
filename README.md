@@ -1,6 +1,8 @@
-# hpc_job_power_predictionpacman -S docker
+# hpc_job_power_prediction
 
-```bash
+```python
+pacman -S docker
+
 groupadd docker
 sudo usermod -aG docker ${USER}
 
