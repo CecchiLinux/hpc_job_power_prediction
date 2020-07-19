@@ -1,5 +1,6 @@
 # hpc_job_power_predictionpacman -S docker
 
+```bash
 groupadd docker
 sudo usermod -aG docker ${USER}
 
@@ -12,3 +13,4 @@ systemctl enable docker.service
 docker build --tag hpc:1.0 .
 
 docker images
+```

@@ -5,6 +5,7 @@
 ### Mine
 datasets/
 .vscode/
+*.out
 
 
 ### JupyterNotebook ###
